@@ -1,0 +1,121 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+
+
+
+```{r}
+library(stringr)
+library(dplyr)
+library(tm)
+library(ggplot2)
+library(wordcloud2)
+```
+
+```{r}
+df <- read.csv('/Users/Cyrill/Desktop/vis/hotel.csv')
+```
+
+```{r pressure, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("/Users/Cyrill/Desktop/SC4.png")
+```
+
+
+
+###IDEAS###
+# international hotel chain got money for expansion, building new hotel, correlation map
+  1) location, which of the six possible city(map most visited cities, ev. clustering), different parameter which define location attraction
+  2) marketing efforts,targeting (where are the (positive) reviews are coming from, ev. clustering, which duration do we focus on )
+  3) service focus (NLP most important features eg. most often occuring positive noun/adjective & most often occuring negative adjective/noun )
+#focus on london
+
+
+
+
+
+```{r}
+## Get hotel details
+df%>%select(Hotel_Name,lat,lng,Hotel_Address)%>%group_by(Hotel_Address)%>%filter(!duplicated(Hotel_Address))->hotel_details
+hotel_details$country=sapply(str_split(hotel_details$Hotel_Address," "),function(x){x[length(x)]})
+hotel_details$city=sapply(str_split(hotel_details$Hotel_Address," "),function(x){x[length(x)-1]})
+## Remove the mention of "United" as "London" in the city column and "Kingdom" as "United Kingdom" in the country column
+hotel_details$city=str_replace(hotel_details$city,"United","London")
+hotel_details$country=str_replace(hotel_details$country,"Kingdom","United Kingdom")
+df%>%left_join(hotel_details[,4:6],by = 'Hotel_Address')->df
+countries=paste(unique(hotel_details$country),collapse=",")
+message=paste("The countries mentioned in the dataset are:", countries)
+print(message)
+```
+
+
+
+```{r}
+ggplot(df,aes(x=Reviewer_Score)) + geom_histogram(binwidth = 1)+theme_bw()+ggtitle('Distribution of reviewer socres')
+```
+
+```{r}
+df%>%ggplot(aes(x=as.factor(country),y=Average_Score))+geom_boxplot()+xlab("Country")+ylab("Average Score")
+```
+
+
+
+```{r}
+ggplot(df, aes(x=as.factor(Reviewer_Nationality),y=Average_Score))+geom_boxplot()+xlab("Country")+ylab("Average Score")
+```
+
+
+
+```{r}
+ggplot(df,aes(x=Total_Number_of_Reviews_Reviewer_Has_Given,y=Reviewer_Score)) + geom_point()+theme_bw()+geom_smooth(method = "lm")+ggtitle('Correlation between score and review frequency')
+```
+
+```{r}
+reviews <- df[sample(nrow(df), 40000), ]
+reviews <- reviews[reviews$Positive_Review!='No Positive',]
+reviews <- reviews[reviews$Negative_Review!='No Negative',]
+term_freq <- function(df,sent){
+  if(sent=='pos'){
+       corpus <- Corpus(VectorSource(df$Positive_Review))
+  }else{
+       corpus <- Corpus(VectorSource(df$Negative_Review))
+  }
+  corpus <- tm_map(corpus, removeWords, stopwords("SMART"))
+  corpus <- tm_map(corpus, removeWords, stopwords("en"))
+  corpus <- tm_map(corpus, stripWhitespace)
+  dtm <-TermDocumentMatrix(corpus)
+  mat_dtm <- as.matrix(dtm)
+  v_dtm <- sort(rowSums(mat_dtm),decreasing = TRUE)
+  FreqMat <- data.frame(word = names(v_dtm), Freq = v_dtm)
+  FreqMat <- FreqMat[1:50,]
+  return(FreqMat)
+}
+wordcloud2(data = term_freq(reviews,'pos'),minRotation = 0,maxRotation = 0)
+```
+
+
+```{r}
+wordcloud2(data = term_freq(reviews,'neg'),minRotation = 0,maxRotation = 0)
+```
+
+```{r pressure, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("/Users/Cyrill/Desktop/SC1.png")
+```
+
+
+
+```{r pressure, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("/Users/Cyrill/Desktop/SC2.png")
+knitr::include_graphics("/Users/Cyrill/Desktop/SC3.png")
+```
+
+```{r}
+
+```
+
+
